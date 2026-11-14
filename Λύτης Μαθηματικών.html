@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Λύτης Μαθηματικών</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#f6f5f1;--surface:#fff;--text:#1d1d1b;--muted:#6b6a64;--line:#e2e0d8;--accent:#2f5bd9;--accent-text:#fff;--ok-bg:#e8f4ec;--ok-line:#9ccaa8;--err:#b3261e}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161614;--surface:#211f1d;--text:#efede6;--muted:#9a978d;--line:#38352f;--accent:#7a9bff;--accent-text:#0d1330;--ok-bg:#1c2f22;--ok-line:#3f6b4c;--err:#f2b8b5}}
+:root[data-theme="dark"]{--bg:#161614;--surface:#211f1d;--text:#efede6;--muted:#9a978d;--line:#38352f;--accent:#7a9bff;--accent-text:#0d1330;--ok-bg:#1c2f22;--ok-line:#3f6b4c;--err:#f2b8b5}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.4rem;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;font-size:.92rem}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+textarea{width:100%;min-height:96px;resize:vertical;border:0;outline:0;background:transparent;color:var(--text);font:inherit;font-size:1.05rem}
+.keys{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.keys button{min-width:40px;padding:6px 8px;border:1px solid var(--line);background:var(--bg);color:var(--text);border-radius:8px;font:inherit;cursor:pointer}
+.row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+button.main{flex:1;min-width:140px;background:var(--accent);color:var(--accent-text);border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer}
+button.alt{border:1px solid var(--line);background:var(--surface);color:var(--text);border-radius:10px;padding:12px 14px;font:inherit;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+#preview{display:none;margin-top:10px;position:relative}
+#preview img{max-width:100%;max-height:220px;border-radius:10px;border:1px solid var(--line);display:block}
+#preview button{position:absolute;top:6px;left:6px;border:0;border-radius:50%;width:28px;height:28px;background:rgba(0,0,0,.65);color:#fff;cursor:pointer;font-size:16px;line-height:1}
+#out{margin-top:16px}
+.step{padding:8px 0;border-bottom:1px dashed var(--line)}
+.step:last-child{border-bottom:0}
+.answer{margin-top:12px;background:var(--ok-bg);border:1px solid var(--ok-line);border-radius:10px;padding:12px 14px;font-weight:600;font-size:1.08rem}
+.status{color:var(--muted);font-size:.92rem}
+.err{color:var(--err)}
+.lang{display:flex;gap:6px;margin:0 0 14px}.lang button{padding:6px 14px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--text);font:inherit;font-size:.9rem;cursor:pointer}.lang button[aria-pressed="true"]{background:var(--accent);color:var(--accent-text);border-color:var(--accent)}
+.hist{margin-top:22px}
+.hist h2{font-size:1rem;color:var(--muted);margin:0 0 8px}
+.hist button{display:block;width:100%;text-align:start;margin-bottom:6px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--text);font:inherit;font-size:.92rem;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<main>
+  <h1 id="ttl">🧮 Λύτης Μαθηματικών</h1>
+  <div class="lang" role="group" aria-label="Γλώσσα / Kieli"><button id="l-el" type="button">Ελληνικά</button><button id="l-fi" type="button">Suomi</button></div>
+  <p class="sub" id="sub">Γράψε μια πράξη ή ένα πρόβλημα, ή ανέβασε φωτογραφία. Θα πάρεις λύση βήμα προς βήμα.</p>
+
+  <div class="card">
+    <textarea id="q" placeholder="π.χ. Λύσε: 2x² − 5x + 3 = 0"></textarea>
+    <div class="keys" id="keys"></div>
+    <div id="preview"><img id="pimg" alt="Φωτογραφία προβλήματος"><button id="rm" aria-label="Αφαίρεση φωτογραφίας">×</button></div>
+    <div class="row">
+      <button class="alt" id="cam">📷 Φωτογραφία</button>
+      <button class="main" id="go">Λύσε</button>
+    </div>
+    <input type="file" id="file" accept="image/*" hidden>
+  </div>
+
+  <div id="out" class="card" style="display:none"></div>
+  <div class="hist" id="hist" style="display:none"><h2>Πρόσφατα</h2><div id="hl"></div></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const q = $('q'), go = $('go'), out = $('out');
+let imgBlob = null, sample = null, ctrl = null, history = [];
+
+// Γλώσσα / Kieli
+const T = {
+  el:{title:'Λύτης Μαθηματικών',sub:'Γράψε μια πράξη ή ένα πρόβλημα, ή ανέβασε φωτογραφία. Θα πάρεις λύση βήμα προς βήμα.',ph:'π.χ. Λύσε: 2x² − 5x + 3 = 0',cam:'📷 Φωτογραφία',go:'Λύσε',recent:'Πρόσφατα',think:'Σκέφτομαι…',need:'Γράψε ένα πρόβλημα ή ανέβασε φωτογραφία.',imgFail:'Δεν μπόρεσα να ανοίξω την εικόνα.',noSample:'Η λύση με Claude δεν είναι διαθέσιμη σε αυτή την προβολή.',noImg:'Η ανάγνωση φωτογραφιών δεν είναι διαθέσιμη εδώ. Γράψε το πρόβλημα με κείμενο.',rate:'Πολλά αιτήματα. Δοκίμασε ξανά σε λίγο.',grant:'Χρειάζεται άδεια για να λυθεί το πρόβλημα.',fail:'Κάτι πήγε στραβά. Δοκίμασε ξανά.',ans:'Απάντηση',rm:'Αφαίρεση φωτογραφίας',prob:'Πρόβλημα:',seeImg:'(δες την εικόνα)'},
+  fi:{title:'Matematiikkaratkaisija',sub:'Kirjoita lasku tai tehtävä tai lataa valokuva. Saat ratkaisun vaihe vaiheelta.',ph:'esim. Ratkaise: 2x² − 5x + 3 = 0',cam:'📷 Valokuva',go:'Ratkaise',recent:'Viimeaikaiset',think:'Mietin…',need:'Kirjoita tehtävä tai lataa valokuva.',imgFail:'Kuvan avaaminen epäonnistui.',noSample:'Ratkaisu Clauden avulla ei ole käytettävissä tässä näkymässä.',noImg:'Kuvien lukeminen ei ole käytettävissä täällä. Kirjoita tehtävä tekstinä.',rate:'Liikaa pyyntöjä. Yritä hetken kuluttua uudelleen.',grant:'Ratkaisu vaatii luvan.',fail:'Jotain meni pieleen. Yritä uudelleen.',ans:'Vastaus',rm:'Poista kuva',prob:'Tehtävä:',seeImg:'(katso kuva)'}
+};
+let lang = 'el';
+try { const s = localStorage.getItem('ml'); if(s==='fi'||s==='el') lang = s; } catch(e){}
+const t = k => T[lang][k];
+function applyLang(){
+  document.documentElement.lang = lang === 'fi' ? 'fi' : 'el';
+  document.title = t('title');
+  $('ttl').textContent = '🧮 ' + t('title');
+  $('sub').textContent = t('sub');
+  q.placeholder = t('ph');
+  $('cam').textContent = t('cam');
+  go.textContent = t('go');
+  $('rm').setAttribute('aria-label', t('rm'));
+  document.querySelector('#hist h2').textContent = t('recent');
+  $('l-el').setAttribute('aria-pressed', lang==='el');
+  $('l-fi').setAttribute('aria-pressed', lang==='fi');
+}
+function setLang(l){ lang = l; try { localStorage.setItem('ml', l); } catch(e){} applyLang(); }
+$('l-el').onclick = () => setLang('el');
+$('l-fi').onclick = () => setLang('fi');
+applyLang();
+const SYS_FI = `Olet ystävällinen matematiikan opettaja. Ratkaise sinulle annettu tehtävä tai lasku (tekstissä ja/tai kuvassa).
+Säännöt:
+- Vastaa suomeksi, ellei tehtävä ole toisella kielellä.
+- Esitä ratkaisu lyhyinä numeroituina vaiheina (jokainen vaihe omalla rivillään, alkaa «Vaihe 1:», «Vaihe 2:» jne.).
+- Kirjoita matematiikka pelkkänä tekstinä Unicode-symbolein (×, ÷, √, π, ², ³, ≤, ≥, −). ÄLÄ käytä LaTeXia äläkä $-merkkiä.
+- Päätä yhteen viimeiseen riviin, joka alkaa täsmälleen «Vastaus:» ja antaa lopputuloksen.
+- Jos kuva ei ole luettavissa tai siinä ei ole matematiikkaa, sano se lyhyesti arvaamisen sijaan.
+- Jos kuvassa on useita tehtäviä, ratkaise ne yksi kerrallaan ja anna kullekin oma «Vastaus:»-rivi.`;
+const SYS = () => lang === 'fi' ? SYS_FI : SYS_EL;
+
+// Εισαγωγή συμβόλων
+['+','−','×','÷','²','³','√','π','^','(',')','=','≤','≥','∫','Σ'].forEach(s=>{
+  const b = document.createElement('button'); b.textContent = s; b.type='button';
+  b.onclick = () => { const p=q.selectionStart; q.setRangeText(s,p,q.selectionEnd,'end'); q.focus(); };
+  $('keys').appendChild(b);
+});
+
+// Ιστορικό (προαιρετικό, ανά συσκευή)
+try { history = JSON.parse(localStorage.getItem('mh') || '[]'); } catch(e){ history = []; }
+function saveHist(t){
+  if(!t) return;
+  history = [t, ...history.filter(x=>x!==t)].slice(0,6);
+  try { localStorage.setItem('mh', JSON.stringify(history)); } catch(e){}
+  renderHist();
+}
+function renderHist(){
+  $('hist').style.display = history.length ? 'block' : 'none';
+  $('hl').textContent = '';
+  history.forEach(t=>{
+    const b=document.createElement('button'); b.textContent=t;
+    b.onclick=()=>{ q.value=t; q.focus(); };
+    $('hl').appendChild(b);
+  });
+}
+renderHist();
+
+// Φωτογραφία: σμίκρυνση πριν την αποστολή
+function shrink(file){
+  return new Promise((res,rej)=>{
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      const s = Math.min(1, 1600/Math.max(im.width, im.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(im.width*s); c.height = Math.round(im.height*s);
+      c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => b ? res(b) : rej(new Error('img')), 'image/jpeg', .88);
+    };
+    im.onerror = () => rej(new Error('img'));
+    im.src = url;
+  });
+}
+$('cam').onclick = () => $('file').click();
+$('file').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try {
+    imgBlob = await shrink(f);
+    $('pimg').src = URL.createObjectURL(imgBlob);
+    $('preview').style.display = 'block';
+  } catch(err){ show('<span class="err">'+t('imgFail')+'</span>'); }
+  e.target.value = '';
+};
+$('rm').onclick = () => { imgBlob = null; $('preview').style.display='none'; };
+
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function show(html){ out.style.display='block'; out.innerHTML = html; }
+
+function render(text){
+  const lines = esc(text).split('\n').filter(l=>l.trim());
+  let html = '', ans = '';
+  for(const l of lines){
+    const m = l.match(/^\s*(?:\*\*)?(?:Απάντηση|Vastaus)(?:\*\*)?\s*:?\s*(?:\*\*)?(.*)$/);
+    const f = s => s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    if(m) ans += (ans ? ' · ' : '') + f(m[1]);
+    else html += '<div class="step">'+f(l)+'</div>';
+  }
+  if(ans) html += '<div class="answer">'+t('ans')+': '+ans+'</div>';
+  return html;
+}
+
+const SYS_EL = `Είσαι ευγενικός καθηγητής μαθηματικών. Λύσε το πρόβλημα ή την πράξη που σου δίνεται (στο κείμενο και/ή στην εικόνα).
+Κανόνες:
+- Απάντα στα ελληνικά, εκτός αν το πρόβλημα είναι σε άλλη γλώσσα.
+- Παρουσίασε τη λύση σε σύντομα αριθμημένα βήματα (κάθε βήμα σε δική του γραμμή, ξεκινά με «Βήμα 1:», «Βήμα 2:» κλπ).
+- Γράψε τα μαθηματικά σε απλό κείμενο με σύμβολα Unicode (×, ÷, √, π, ², ³, ≤, ≥, −). ΜΗΝ χρησιμοποιείς LaTeX ούτε $.
+- Τελείωσε με μία τελευταία γραμμή που ξεκινά ακριβώς με «Απάντηση:» και δίνει το τελικό αποτέλεσμα.
+- Αν η εικόνα δεν διαβάζεται ή δεν περιέχει μαθηματικά, πες το σύντομα αντί να μαντέψεις.
+- Αν υπάρχουν πολλές ασκήσεις στην εικόνα, λύσε τις μία μία με ξεχωριστή «Απάντηση:» για την καθεμία.`;
+
+async function solve(){
+  const txt = q.value.trim();
+  if(!txt && !imgBlob){ show('<span class="err">'+t('need')+'</span>'); return; }
+  if(!sample){ sample = await claude.use('sample'); }
+  if(!sample){ show('<span class="err">'+t('noSample')+'</span>'); return; }
+  if(ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  go.disabled = true;
+  show('<span class="status">'+t('think')+'</span>');
+  try{
+    const opts = { signal: ctrl.signal, modelTier:'complex', cache:false,
+      onText: ({text}) => show(render(text)) };
+    if(imgBlob){
+      let lim = null; try { lim = await sample.limits(); } catch(e){}
+      if(lim && lim.images) opts.images = [imgBlob];
+      else { show('<span class="err">'+t('noImg')+'</span>'); go.disabled=false; return; }
+    }
+    const prompt = SYS() + '\n\n' + t('prob') + '\n' + (txt || t('seeImg'));
+    const r = await sample(prompt, opts);
+    show(render(r.text));
+    saveHist(txt);
+  }catch(err){
+    if(err && err.code === 'rate_limited') show('<span class="err">'+t('rate')+'</span>');
+    else if(err && err.code === 'not_granted') show('<span class="err">'+t('grant')+'</span>');
+    else if(err && err.name === 'AbortError') {}
+    else show('<span class="err">'+t('fail')+'</span>');
+  }finally{ go.disabled = false; }
+}
+go.onclick = solve;
+q.addEventListener('keydown', e => { if(e.key==='Enter' && (e.metaKey||e.ctrlKey)) solve(); });
+</script>
+</body>
+</html>
